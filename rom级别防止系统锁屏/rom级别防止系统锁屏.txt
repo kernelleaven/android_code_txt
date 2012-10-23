@@ -1,0 +1,140 @@
+﻿锁定屏幕对于移动终端来说是非常有必要的，但是对于机顶盒产品就没有这个必要了。所以本文介绍一下怎样让Android设备永不锁屏。     Android系统的锁屏时间存放在Setting数据库中，字段为Settings.System.SCREEN_OFF_TIMEOUT。查看SettingsProvider源码，查看如下文件的源码：
+frameworks/base/packages/SettingsProvider/src/com/android/providers/settings/DatabaseHelper.java
+查看loadSystemSettings()函数的代码如下：
+private void loadSystemSettings(SQLiteDatabase db) {
+        SQLiteStatement stmt = db.compileStatement("INSERT OR IGNORE INTO system(name,value)"
+                + " VALUES(?,?);");
+
+        Resources r = mContext.getResources();
+
+        loadBooleanSetting(stmt, Settings.System.DIM_SCREEN,
+                R.bool.def_dim_screen);
+        loadSetting(stmt, Settings.System.STAY_ON_WHILE_PLUGGED_IN,
+                "1".equals(SystemProperties.get("ro.kernel.qemu")) ? 1 : 0);
+        loadIntegerSetting(stmt, Settings.System.SCREEN_OFF_TIMEOUT,
+                R.integer.def_screen_off_timeout);
+
+        // Set default cdma emergency tone
+        loadSetting(stmt, Settings.System.EMERGENCY_TONE, 0);
+
+        // Set default cdma call auto retry
+        loadSetting(stmt, Settings.System.CALL_AUTO_RETRY, 0);
+
+        // Set default cdma DTMF type
+        loadSetting(stmt, Settings.System.DTMF_TONE_TYPE_WHEN_DIALING, 0);
+
+        // Set default hearing aid
+        loadSetting(stmt, Settings.System.HEARING_AID, 0);
+
+        // Set default tty mode
+        loadSetting(stmt, Settings.System.TTY_MODE, 0);
+
+        loadBooleanSetting(stmt, Settings.System.AIRPLANE_MODE_ON,
+                R.bool.def_airplane_mode_on);
+
+        loadStringSetting(stmt, Settings.System.AIRPLANE_MODE_RADIOS,
+                R.string.def_airplane_mode_radios);
+
+        loadStringSetting(stmt, Settings.System.AIRPLANE_MODE_TOGGLEABLE_RADIOS,
+                R.string.airplane_mode_toggleable_radios);
+
+        loadBooleanSetting(stmt, Settings.System.AUTO_TIME,
+                R.bool.def_auto_time); // Sync time to NITZ
+
+        loadIntegerSetting(stmt, Settings.System.SCREEN_BRIGHTNESS,
+                R.integer.def_screen_brightness);
+
+        loadBooleanSetting(stmt, Settings.System.SCREEN_BRIGHTNESS_MODE,
+                R.bool.def_screen_brightness_automatic_mode);
+
+        loadDefaultAnimationSettings(stmt);
+
+        loadBooleanSetting(stmt, Settings.System.ACCELEROMETER_ROTATION,
+                R.bool.def_accelerometer_rotation);
+
+        loadDefaultHapticSettings(stmt);
+
+        stmt.close();
+    }
+     从代码中我们可以看出，假如Settings.System.SCREEN_OFF_TIMEOUT没有初始化的话（系统首次启动，这个字段肯定是没有初始化的），将会利用资源中的R.integer.def_screen_off_timeout来初始化。我们为了让系统永不锁屏，只需要把资源R.integer.def_screen_off_timeout设为-1即可。查看文件
+frameworks/base/packages/SettingsProvider/res/values/defaults.xml
+可以找到R.integer.def_screen_off_timeout的定义。
+<integer name="def_screen_off_timeout">60000</integer>
+发现默认值为60000ms，也就是60s。我们只需要把这个参数改为-1。然后重新编译SettingsProvider模块，就OK了。
+     另外为了防止用户进入系统后，修改锁屏时间，在Setting模块中删除对锁屏时间的设置。这样Android设备就永不锁屏了。
+后来发现我的Android设备烧录好之后第一次启动永远不会锁屏，但是设备重启之后开机就进入锁屏状态，解锁之后就再也不会锁屏了（因为永远不超时）。看来“革命尚未成功，同志仍需努力”啊。     那么为什么启动之后没有进入锁屏状态呢？是不会系统有把超时锁屏的值给修改了呢？我通过sqlite3去查看settings.db的内容，发现超时锁屏的值仍然是-1。说明启动之后，系统并没有去数据库中查看屏幕超时锁屏的值，就直接锁屏了。
+     但是怎样才能开机之后不进入锁屏状态呢？这个是个非常费思量的问题。经过go，我知道锁屏的代码在LockScreen.java中，然后顺藤摸瓜，终于找到了可以设置锁屏功能开关的位置。代码位于：
+frameworks/policies/base/phone/com/android/internal/policy/impl/KeyguardViewMediator.java
+该文件中有一个变量定义如下：
+    /**
+     * External apps (like the phone app) can tell us to disable the keygaurd.
+     */
+    private boolean mExternallyEnabled = true;
+mExternallyEnabled是用来管理是否开启屏幕锁的关键。默认值是打开屏锁，根据注释可以知道他是希望应用程序来修改这个值。但是经过加打印信息发现开机的时候没有任何应用程序会修改它。修改这个值调用如下函数：
+   /**
+     * Same semantics as {@link WindowManagerPolicy#enableKeyguard}; provide
+     * a way for external stuff to override normal keyguard behavior.  For instance
+     * the phone app disables the keyguard when it receives incoming calls.
+     */
+    public void setKeyguardEnabled(boolean enabled) {
+        synchronized (this) {
+            if (DEBUG) Log.d(TAG, "setKeyguardEnabled(" + enabled + ")");
+
+            mExternallyEnabled = enabled;
+
+            if (!enabled && mShowing) {
+                if (mExitSecureCallback != null) {
+                    if (DEBUG) Log.d(TAG, "in process of verifyUnlock request, ignoring");
+                    // we're in the process of handling a request to verify the user
+                    // can get past the keyguard. ignore extraneous requests to disable / reenable
+                    return;
+                }
+
+                // hiding keyguard that is showing, remember to reshow later
+                if (DEBUG) Log.d(TAG, "remembering to reshow, hiding keyguard, "
+                        + "disabling status bar expansion");
+                mNeedToReshowWhenReenabled = true;
+                hideLocked();
+            } else if (enabled && mNeedToReshowWhenReenabled) {
+                // reenabled after previously hidden, reshow
+                if (DEBUG) Log.d(TAG, "previously hidden, reshowing, reenabling "
+                        + "status bar expansion");
+                mNeedToReshowWhenReenabled = false;
+
+                if (mExitSecureCallback != null) {
+                    if (DEBUG) Log.d(TAG, "onKeyguardExitResult(false), resetting");
+                    mExitSecureCallback.onKeyguardExitResult(false);
+                    mExitSecureCallback = null;
+                    resetStateLocked();
+                } else {
+                    showLocked();
+
+                    // block until we know the keygaurd is done drawing (and post a message
+                    // to unblock us after a timeout so we don't risk blocking too long
+                    // and causing an ANR).
+                    mWaitingUntilKeyguardVisible = true;
+                    mHandler.sendEmptyMessageDelayed(KEYGUARD_DONE_DRAWING, KEYGUARD_DONE_DRAWING_TIMEOUT_MS);
+                    if (DEBUG) Log.d(TAG, "waiting until mWaitingUntilKeyguardVisible is false");
+                    while (mWaitingUntilKeyguardVisible) {
+                        try {
+                            wait();
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        }
+                    }
+                    if (DEBUG) Log.d(TAG, "done waiting for mWaitingUntilKeyguardVisible");
+                }
+            }
+        }
+    }
+    经过上面的讨论我们可以发现我们有两个解决方法：
+
+    1、定义变量的时候，给其初始化为false。
+    2、在launcher模块启动的时候，调用setKeyguardEnabled方法，关闭锁屏功能。
+
+    我懒得修改Laucher模块，我的解决方法就是在定义mExternallyEnabled时修改其初始值为false。各位朋友可以根据自己的实际情况选择解决方案。我的代码如下：
+   /**
+     * External apps (like the phone app) can tell us to disable the keygaurd.
+     */
+    private boolean mExternallyEnabled = false;
+     这样修改之后，Android设备开机之后，默认不会进入锁屏状态，除非你在应用程序中调用setKeyguardEnabled方法显示打开这个功能。因为设置的超时时间为-1，则永远也不会进入锁屏界面。完全满足了我的需求，终于大功告成了
