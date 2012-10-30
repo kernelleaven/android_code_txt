@@ -1,0 +1,37 @@
+﻿    //启动的时候调用initSwitchThread()
+    //退出时候调用stopCyclSwitch()
+    private Timer switch_timer=null;
+    private Handler switch_handler=null;
+    private TimerTask switch_task=null;
+    private int timer_cycl=300;
+    private void initSwitchThread(){
+   	 switch_timer = new Timer(); 
+   	 switch_handler = new Handler(){
+   		 public void handleMessage(Message msg) {   
+   			 switchTV();
+   		 }   
+   	 };
+   	 switch_task=new TimerTask(){
+   		 public void run() {
+   			 Message message = new Message();   
+   			message.what=0;
+   			 switch_handler.sendMessage(message);			
+   		 }
+   	 };
+   	 goSwitchLoop();
+   }
+   private void goSwitchLoop(){
+	switch_timer.schedule(switch_task,timer_cycl,timer_cycl);
+   }
+   private void stopCyclSwitch(){
+	   if(null != switch_timer){
+		   switch_task.cancel();
+		   switch_timer.cancel();
+		   switch_handler.removeMessages(0);
+		   switch_timer=null;
+	   }
+   }
+   private void switchTV(){
+	   //此处可以调用ui
+	   Log.v("xxxx","--------------");
+   }
