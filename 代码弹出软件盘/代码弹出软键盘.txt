@@ -1,0 +1,11 @@
+    	editext.setVisibility(View.VISIBLE);    	
+    	editext.requestFocus();
+    	Timer timer = new Timer();
+    	     timer.schedule(new TimerTask(){
+    	         public void run() {
+    	             InputMethodManager inputManager =
+    	                 (InputMethodManager)RemotecontrolActivity.this.editext.getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+    	             inputManager.showSoftInput(RemotecontrolActivity.this.editext, 0);
+    	         }
+    	     },  
+    	     200);
