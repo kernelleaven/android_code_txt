@@ -1,0 +1,79 @@
+﻿http://blog.csdn.net/silvervi/article/details/6315888
+       写这篇文章前，首先要感谢 Simon_fu ，他的两篇关于 root 权限的文章对于我的工作起到了非
+	   常大的帮助，这篇文章可以说是对他的文章的一个补充。 Simon_fu 的文章可以参考如下两个网页：
+Android程序的安全系统
+Android应用程序获得 root权限
+
+       一般来说， Android 下的应用程序可以“直接”得到的最大的权限为 system ，但是如果我们需要
+	   在程序中执行某些需要 root 权限的命令，如 ifconfig 等，就需要 root 权限了。按照 Simon 
+	   的文章中提到的，应用程序有以下两种办法临时获得 root 权限：
+1)        实现一个 init 实现一个 Service ，来帮助 Android 应用程序执行 root 权限的命令。
+2)        实现一个虚拟设备，这个设备帮助 Android 应用程序执行 root 权限的命令。
+
+第二种办法我这里没有尝试，暂时也不会。这里讲讲我在实现第一种办法的过程和遇到的一些问题。
+
+1.       将我们要执行的命令写成脚本，或者可执行程序。
+下面是我的脚本 ifconfig_test.sh ：
+    # ！ /system/bin/sh
+    ifconfig
+       注意： 脚本的第一行必须为 # ！ /system/bin/sh ，否则无法执行，通过 dmesg 可以查看到信
+	   息内容为 cannot execve ./ifconfig_test.sh: Exec format error
+也可以采用 C/C++ 编写需要执行的命令或者程序，并在编译 image 的时候编译成可执行程序。
+
+2.       在 init.rc 中注册 service
+Android 中的 service 需要在 init.rc 中注册， Init.rc 中定义的 Service 将会被 init 进程创建，
+这样将可以获得 root 权限。当得到相应的通知（通过属性设置）后， init 进程会启动该 service 。
+本文中注册的内容如下：
+    service ifconfig_test /system/etc/ifconfig_test.sh
+    oneshot
+    disabled
+       其中， oneshot 表示程序退出后不再重新启动， disabled 表示不在系统启动时启动。
+
+注意： 这里 service name 不能超过 16 个字符。我之前的 service name 由于定义的比较长， 18 个字符，
+设置属性通知 service 启动后查看 dmesg 可以看到提示： init: no such service 。查看 
+/system/core/init/parser.c 的源代码，在 parse_service->valid_name 函数中可以看到如下内容：
+ if (strlen(name) > 16) { return 0; } ，证明 service 的名字的确不能超过 16 个字符。
+
+3.       将 Android 应用程序提升为 system 权限
+既然应用程序可以通过启动 service 获得 root 权限，那么岂不是很不安全。
+ Android 考虑到了这点，规定只有 system 权限的应用程序才能设置属性，通知 service 启动。
+ 关于提升 system 权限的文章网上已有很多，这里就不再细说，可以参考如下两篇文章(简单说就是在系统源码下编译)：
+http://blog.csdn.net/liujian885/archive/2010/03/22/5404834.aspx
+http://labs.chinamobile.com/mblog/532767_73183
+
+4.       在应用程序中添加属性设置代码
+前面已经提到，对于 Android 来说，应用程序通知 init 启动 service 是通过设置系统属性来完成的，
+具体为设置 System 系统属性 “ctl.start” 为 “ifconfig_test” ，这样 Android 系统将会帮我们
+运行 ifconfig_test 这个 service 了。
+对该系统属性的设置有三种方法，分别对应三种不同的应用程序：  
+1)  Java 代码
+  Android 在 Java 库中提供 System.getProperty 和 System.setProperty 方法， Java 程序可
+  以通过他们来设置和获得属性。代码如下：
+    SystemProperties.set("ctl.start", "ifconfig_test");
+上面的代码是通知 Android 执行 ifconfig_test service ，如果需要查询当前 service 执行的状态，
+如是否执行完毕，可以通过如下代码查询：
+    ret = SystemProperties.get("init.svc. ifconfig_test ", "");
+    if(ret != null && ret.equals("stopped"))
+      {
+          return true;
+      }
+        2）  JNI 代码
+当编写 NDK 的程序时，可以使用 property_get 和 property_set 这两个 API 来获得和设置属性。使用
+这两个 API 必须要包含头文件 cutils/properties.h 和链接 libcutil 库。
+ 
+3）  Shell 脚本
+Android 提供了命令行 setprop 和 getprop 来设置和获取属性，他们可以在脚本中被使用。
+
+由于我的程序是在 JNI 中调用脚本，脚本中又执行 ifconfig ，因此我将设置属性的部分放在了脚本中
+完成，代码如下：
+    setprop ctl.start ifconfig_test
+    #wait for the service until it stops
+    ret=1
+    while [ $ret -ne 0 ]
+    do
+           getprop | grep "$ENABLE_MAPPER_SRV" | grep stopped
+           ret=$?
+    done
+
+       通过上面 4 个步骤， Android 应用程序就获得了 root 权限，更具体的说，是在执行我们需
+	   要执行的命令时临时获得了 root 权限。 

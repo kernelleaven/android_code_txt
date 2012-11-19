@@ -1,0 +1,17 @@
+public static native void callJniScreenShotData(byte[] data,int len);
+
+//c
+JNIEXPORT void JNICALL Java_com_iflytek_udp_NetUtil_callJniScreenShotData(JNIEnv * env, jobject  obj,jbyteArray dataArray, jint inSize){
+	jbyte* pbyteData;
+	LOGI("callJniScreenShotData");
+	char * test="Java_com_iflytek_udp_NetUtil_callJniScreenShotData";
+	pbyteData = (*env)->GetByteArrayElements(env,dataArray, 0);
+	screen_shot_getdata((char *)pbyteData,inSize);
+//	memcpy((char *)pbyteData,test,strlen(test));
+	(*env)->ReleaseByteArrayElements(env,dataArray, pbyteData, 0);
+}
+
+
+//c++
+pbyteData = (env)->GetByteArrayElements(dataArray, 0);
+(env)->ReleaseByteArrayElements(dataArray, pbyteData, 0);
