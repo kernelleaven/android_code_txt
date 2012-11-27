@@ -1,0 +1,156 @@
+﻿
+
+作者：徐建祥(netpirate@gmail.com)
+日期：2010/03/06
+网址：http://www.anymobile.org
+
+ 
+
+调试步骤如下：
+1/ 将异常的地址信息存到文本文件，并存放在项目根目录；
+2/ 使用panic.py解析该文件；
+3/ 根据返回的信息(文件名;行号;方法名)调试程序。
+
+ 
+
+以操作第三方的Touch input 输入法为例，过程如下：
+
+ 
+
+# 该输入法的英文和手写OK，操作中文输入法时，出现异常，软键盘消失，异常日志如下
+
+02-05 06:41:19.834 D/dalvikvm(  751): Trying to load lib /system/lib/libimezi.so 0x43e2a788
+02-05 06:41:19.874 D/dalvikvm(  751): Added shared lib /system/lib/libimezi.so 0x43e2a788
+02-05 06:41:20.035 I/DEBUG   (  551): *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+02-05 06:41:20.035 I/DEBUG   (  551): Build fingerprint: 'unknown'
+02-05 06:41:20.035 I/DEBUG   (  551): pid: 751, tid: 751  >>> com.htc.android.cime <<<
+02-05 06:41:20.045 I/DEBUG   (  551): signal 11 (SIGSEGV), fault addr 00000003
+02-05 06:41:20.045 I/DEBUG   (  551):  r0 00000000  r1 00000000  r2 807248ec  r3 807248ec
+02-05 06:41:20.055 I/DEBUG   (  551):  r4 00252d80  r5 00000004  r6 00000001  r7 00000000
+02-05 06:41:20.055 I/DEBUG   (  551):  r8 beff8550  r9 41459d28  10 41459d18  fp 00000000
+02-05 06:41:20.055 I/DEBUG   (  551):  ip 8072430c  sp beff84f0  lr 80716b4f  pc 80717bce  cpsr 60000030
+02-05 06:41:20.135 I/DEBUG   (  551):          #00  pc 00017bce  /system/lib/libimezi.so
+02-05 06:41:20.135 I/DEBUG   (  551):          #01  pc 00010f80  /system/lib/libimezi.so
+02-05 06:41:20.145 I/DEBUG   (  551): stack:
+02-05 06:41:20.155 I/DEBUG   (  551):     beff84b0  ad083e10 
+02-05 06:41:20.155 I/DEBUG   (  551):     beff84b4  ad05d44f  /system/lib/libdvm.so
+02-05 06:41:20.155 I/DEBUG   (  551):     beff84b8  ad06b8a0  /system/lib/libdvm.so
+02-05 06:41:20.155 I/DEBUG   (  551):     beff84bc  ad083e10 
+02-05 06:41:20.167 I/DEBUG   (  551):     beff84c0  43e2aa90 
+02-05 06:41:20.175 I/DEBUG   (  551):     beff84c4  00000003 
+02-05 06:41:20.175 I/DEBUG   (  551):     beff84c8  00000014 
+02-05 06:41:20.185 I/DEBUG   (  551):     beff84cc  80716b4f  /system/lib/libimezi.so
+
+ 
+
+# 保存异常日志，存为文件: 20100205_ime.txt
+
+02-05 06:41:20.045 I/DEBUG   (  551):  r0 00000000  r1 00000000  r2 807248ec  r3 807248ec
+02-05 06:41:20.055 I/DEBUG   (  551):  r4 00252d80  r5 00000004  r6 00000001  r7 00000000
+02-05 06:41:20.055 I/DEBUG   (  551):  r8 beff8550  r9 41459d28  10 41459d18  fp 00000000
+02-05 06:41:20.055 I/DEBUG   (  551):  ip 8072430c  sp beff84f0  lr 80716b4f  pc 80717bce  cpsr 60000030
+02-05 06:41:20.135 I/DEBUG   (  551):          #00  pc 00017bce  /system/lib/libimezi.so
+02-05 06:41:20.135 I/DEBUG   (  551):          #01  pc 00010f80  /system/lib/libimezi.so
+
+ 
+
+# 执行脚本
+
+xujianxiang@wingdroid-clone:~/workspace/xujx/wing15$ ./panic.py 20100205_ime.txt
+read file ok
+/home/xujianxiang/workspace/xujx/wing15/prebuilt/linux-x86/toolchain/arm-eabi-4.2.1/bin/arm-eabi-addr2line: '/home/xujianxiang/workspace/xujx/wing15/out/target/product/generic/symbols/system/lib/libimezi.so': No such file
+Traceback (most recent call last):
+  File "./panic.py", line 69, in <module>
+    print "%-30s%s" % (list[1],list[0])
+IndexError: list index out of range
+
+ 
+
+# 没找到库文件，因为这个文件是第三方的，只存放在/out/target/product/generic/system/lib/libimezi.so，拷贝一份存到/out/target/product/generic/symbols/system/lib/libimezi.so，再次执行脚本
+
+xujianxiang@wingdroid-clone:~/workspace/xujx/wing15$ ./panic.py 20100205_ime.txt
+read file ok
+zi81keyd.c:0                  Zi8GetTableData
+zi81keyd.c:0                  Zi8InitializeDynamic
+
+ 
+
+# 成功解析异常，没有zi8库文件所致，更新如下库文件，输入法支持中文拼音。
+
+/system/lib/zi/Zi8DatPYP_CN.z8d
+/system/lib/zi/Zi8DatPYS_CN.z8d
+/system/lib/zi/Zi8DatZHA_CN.z8d
+/system/lib/zi/Zi8DatZHA_HK.z8d
+/system/lib/zi/Zi8DatZHA_TW.z8d
+/system/lib/zi/Zi8DatZYP_TW.z8d
+/system/lib/zi/Zi8DatZYS_TW.z8d
+
+ 
+
+附 panic.py：
+ 1#!/usr/bin/python
+ 2# stack symbol parser
+ 3
+ 4import os
+ 5import string
+ 6import sys
+ 7
+ 8#define android product name
+ 9#ANDROID_PRODUCT_NAME = 'generic'
+10ANDROID_PRODUCT_NAME = 'smdk6410'
+11
+12ANDROID_WORKSPACE = os.getcwd()+"/"
+13
+14# addr2line tool path and symbol path
+15addr2line_tool = ANDROID_WORKSPACE + 'prebuilt/linux-x86/toolchain/arm-eabi-4.2.1/bin/arm-eabi-addr2line'
+16symbol_dir = ANDROID_WORKSPACE + 'out/target/product/' + ANDROID_PRODUCT_NAME +'/symbols'
+17symbol_bin = symbol_dir + '/system/bin/'
+18symbol_lib = symbol_dir + '/system/lib/'
+19
+20class ReadLog:
+21    def __init__(self,filename):
+22        self.logname = filename
+23    def parse(self):
+24        f = file(self.logname,'r')
+25        lines = f.readlines()
+26        if lines != []:
+27            print 'read file ok'
+28        else:
+29            print 'read file failed'
+30        result =[]
+31        for line in lines:
+32            if line.find('stack') != -1:
+33                print 'stop search'
+34                break
+35            elif line.find('system') != -1:
+36                #print 'find one item' + line
+37                result.append(line)
+38        return result
+39
+40class ParseContent:
+41    def __init__(self,addr,lib):
+42            self.address = addr # pc address
+43            self.exename = lib  # executable or shared library
+44    def addr2line(self):
+45        cmd = addr2line_tool + " -C -f -s -e " + symbol_dir + self.exename + " " + self.address
+46        #print cmd
+47        stream = os.popen(cmd)
+48        lines = stream.readlines();
+49        list = map(string.strip,lines)
+50        return list
+51    
+52inputarg = sys.argv
+53if len(inputarg) < 2:
+54    print 'Please input panic log'
+55    exit()
+56
+57filename = inputarg[1]
+58readlog = ReadLog(filename)
+59inputlist = readlog.parse()
+60
+61for item in inputlist:
+62    itemsplit = item.split()
+63    test = ParseContent(itemsplit[-2],itemsplit[-1])
+64    list = test.addr2line()
+65    print "%-30s%s" % (list[1],list[0])
+66
