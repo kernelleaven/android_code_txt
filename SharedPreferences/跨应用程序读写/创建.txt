@@ -1,0 +1,35 @@
+﻿import android.app.Activity;  
+import android.content.SharedPreferences;  
+import android.os.Bundle;  
+  
+public class PermissionActivity extends Activity {  
+    private final int[] MODES=new int[]{  
+        Activity.MODE_PRIVATE,//默认操作模式，代表该文件是私有数据，只能被应用本身访问，
+		在该模式下，写入的内容会覆盖原文件的内容，如果想把新写入的内容追加到原文件中，可以使用Activity.MODE_APPEND  
+        Activity.MODE_WORLD_READABLE,//表示当前文件可以被其他应用读取，  
+        Activity.MODE_WORLD_WRITEABLE,//表示当前文件可以被其他应用写入；  
+                                     //如果希望文件被其他应用读和写，
+									 可以传入:Activity.MODE_WORLD_READABLE+Activity.MODE_WORLD_WRITEABLE  
+        Activity.MODE_APPEND//该模式会检查文件是否存在，存在就往文件追加内容，否则就创建新文件  
+    };  
+    @Override  
+    public void onCreate(Bundle savedInstanceState) {  
+        super.onCreate(savedInstanceState);  
+        setContentView(R.layout.main);  
+          
+        for(int i=0;i<MODES.length;i++){  
+            SharedPreferences mySharedPreferences=getSharedPreferences("data_"+String.valueOf(i+1),MODES[i]);  
+            SharedPreferences.Editor editor=mySharedPreferences.edit();  
+            editor.putString("name",String.valueOf(i+1));  
+            editor.commit();  
+        }  
+    }  
+}  
+
+　　用getsharedPreferences方法获得sharedpreferences对象，getsharedPreferences方法的
+第2个参数值使用到了Activity.MODE_PRIVATE常量。除了这个常量以外还可以使用另外3个常量。
+这4个常量用于指定文件的建立模式。他们一个重要的功能就是设置文件的属性，从而可以设置
+数据文件的访问权限。
+
+　　默认的模式为0或MODE_PRIVATE，如果访问其他应用中的Preference，前提条件是：
+该preference创建时指定了Context.MODE_WORLD_READABLE或者Context.MODE_WORLD_WRITEABLE权限。

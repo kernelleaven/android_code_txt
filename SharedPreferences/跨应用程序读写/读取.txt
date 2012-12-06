@@ -1,0 +1,16 @@
+﻿Android 读取其它应用的SharedPreferences 配置文件信息
+        try
+        {
+             // "sn.android" 被读取应用的包名
+             Context otherContext = this.createPackageContext("sn.android", Context.CONTEXT_IGNORE_SECURITY);
+   // 被读取应用的SharedPreferences 文件应赋予Activity.MODE_WORLD_READABLE 或Activity.MODE_WORLD_WRITEABLE 权限
+             SharedPreferences preferences = otherContext.getSharedPreferences("test", Context.MODE_PRIVATE);
+             String name = preferences.getString("username", "blank"); // 读取的字段，为空值时，默认赋值"blank"
+             String pwd = preferences.getString("password", "blank"); // 同上
+             Log.v("sn", "name = "+ name + ", pwd = "+ pwd);
+        }
+        catch (NameNotFoundException e)
+        {
+             // TODO Auto-generated catch block
+             e.printStackTrace();
+        }
