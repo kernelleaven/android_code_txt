@@ -9,6 +9,7 @@
    2. $cd android  
    3. $ repo init -u https://android.googlesource.com/platform/manifest -b android-4.0.1_r1  
 	repo init -u https://android.googlesource.com/platform/manifest -b android-4.0.3_r1.1
+	repo init -u https://android.googlesource.com/platform/manifest -b android-4.2_r1
    4. ...(输入用户名和邮箱名）  
    5. $repo sync -j5  
    6. ...(此处用5个线程开始下载源码，下载过程及其漫长，需要耐心等待)  
