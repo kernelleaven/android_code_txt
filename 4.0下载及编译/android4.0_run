@@ -1,0 +1,11 @@
+3从模拟器启动编译后的镜像文件
+1）设置环境变量：  
+   1. export PATH=~/android/out/host/linux-x86/bin:$PATH  
+   2.   
+   3. export ANDROID_PRODUCT_OUT=~/android/out/target/product/generic  
+其中linux-x86/bin存放模拟器emulator工具，product/generic存在编译后的镜像文件。
+
+2）启动模拟器
+   1. $emulator  
+   2.   
+   3. emulator:WARNING: system partition size adjusted to match image file (162 MB >66 MB)  

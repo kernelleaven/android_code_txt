@@ -1,0 +1,33 @@
+如何在32位ubuntu11.10 下编译android 4.0.1源码和goldfish内核 
+http://blog.csdn.net/xnwyd/article/details/7086414
+1.从jdk官方网站http://www.oracle.com/technetwork/java/javase/downloads/jdk-6u29-download-513648.html下载jdk-6u29-linux-i586.bin文件。
+
+2.执行jdk安装文件
+    $chmod a+x jdk-6u29-linux-i586.bin  
+    $jdk-6u29-linux-i586.bin  
+
+3.配置jdk环境变量
+    $sudo vim /etc/profile  
+	----------- cut start -----------
+ #JAVAEVIRENMENT  
+ export JAVA_HOME=/usr/lib/java/jdk1.6.0_29  
+ export JRE_HOME=$JAVA_HOME/jre  
+ export CLASSPATH=$JAVA_HOME/lib:$JRE_HOME/lib:$CLASSPATH  
+ export PATH=$JAVA_HOME/bin:$JRE_HOME/bin:$PATH 
+	----------- cut end   -----------
+	保存后退出编辑，并重启系统。
+
+4.安装依赖包:
+	sudo apt-get install git-core gnupg flex bison gperf build-essential zip curl zlib1g-dev libc6-dev 
+	sudo apt-get install lib32 ncurses5-devia32-libs x11proto-core-devlibx11-dev 
+	sudo apt-get install lib32readline5-dev lib32z-dev libgl1-mesa-devg++-multi
+	sudo apt-get install libmingw32tofrodospython-markdown libxml2-utils
+===========
+	sudo apt-get install git-core gnupg flex bison gperf build-essential zip curl zlib1g-dev libc6-dev 
+	sudo apt-get install libncurses5-dev grub-common x11proto-core-dev libx11-dev 
+	sudo apt-get install libreadline5-dev zlib1g-dev libgl1-mesa-glx 
+	sudo apt-get install mingw32 tofrodos python-markdown libxml2-utils
+
+5.用repo工具下载源码
+
+6.编译源码

@@ -1,0 +1,38 @@
+(1)初始化repo
+   1. $mkdir ~/bin 
+   2. $curl https://dl-ssl.google.com/dl/googlesource/git-repo/repo > ~/bin/repo
+   3. $chmod a+x ~/bin/repo  
+   4. $export PATH=$PATH:~/bin（导出环境变量）  
+
+(2)下载android最新源码
+   1. $mkdir android  
+   2. $cd android  
+   3. $ repo init -u https://android.googlesource.com/platform/manifest -b android-4.0.1_r1  
+	repo init -u https://android.googlesource.com/platform/manifest -b android-4.0.3_r1.1
+   4. ...(输入用户名和邮箱名）  
+   5. $repo sync -j5  
+   6. ...(此处用5个线程开始下载源码，下载过程及其漫长，需要耐心等待)  
+
+其余问题：
+=======================================================================
+repo init -u https://android.googlesource.com/platform/manifest
+Traceback (most recent call last):
+  File "/home/sk/bin/repo", line 690, in <module>
+    main(sys.argv[1:])
+  File "/home/sk/bin/repo", line 657, in main
+    _Init(args)
+  File "/home/sk/bin/repo", line 189, in _Init
+    _CheckGitVersion()
+  File "/home/sk/bin/repo", line 214, in _CheckGitVersion
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+  File "/usr/lib/python2.6/subprocess.py", line 633, in __init__
+    errread, errwrite)
+  File "/usr/lib/python2.6/subprocess.py", line 1139, in _execute_child
+    raise child_exception
+OSError: [Errno 2] No such file or directory
+
+　　这样的异常是由于整个linux环境的配置问题，解决方法为请安装以下的全部程序：
+　　view plaincopy to clipboardprint?
+
+　　$ sudo apt-get install git-core gnupg sun-java5-jdk flex bison gperf libsdl-dev libesd0-dev libwxgtk2.6-dev build-essential zip curl libncurses5-dev zlib1g-dev
+

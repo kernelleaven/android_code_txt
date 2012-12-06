@@ -1,0 +1,52 @@
+(1)开始编译
+   1. $source build/envsetup.sh  
+   2. including device/samsung/maguro/vendorsetup.sh  
+   3.   
+   4. including device/samsung/tuna/vendorsetup.sh  
+   5.   
+   6. including device/ti/panda/vendorsetup.sh  
+   7.   
+   8. including sdk/bash_completion/adb.bash  
+   9.   
+  10. $make -j4（此处用4个线程编译）  
+
+(2)编译完成后，会看到类似的输出：
+   1. Targetramdisk:out/target/product/generic/ramdisk.img  
+   2. Targetuserdatafsimage:out/target/product/generic/userdata.img  
+   3. Installedfilelist:out/target/product/generic/installed-files.txt   
+
+
+================================
+2编译遇到的问题
+   1. <命令行>:0:0:错误：“_FORTIFY_SOURCE”重定义[-Werror]  
+   2.   
+   3. <built-in>:0:0:附注： 这是先前定义的位置  
+   4.   
+   5. cc1plus：所有的警告都被当作是错误  
+   6.   
+   7. make:*** [out/host/linux-x86/obj/EXECUTABLES/obbtool_intermediates/Main.o]错误 1  
+
+原因：
+
+因机器上的gcc版本过高，需替换成4.4.6重新进行编译。
+1）安装4.4版本的gcc和g++
+   1. $ sudo apt-get install gcc-4.4  
+   2. $ sudo apt-get install g++-4.4  
+2）设置gcc版本，使gcc链接到gcc-4.4
+   1. $ ls -l /usr/bin/gcc*  
+   2.   
+   3. lrwxrwxrwx 1 root root      7 2011-11-01 23:56 /usr/bin/gcc -> gcc-4.6  
+   4.   
+   5. -rwxr-xr-x 1 root root 224544 2011-10-06 05:47 /usr/bin/gcc-4.4  
+   6.   
+   7. -rwxr-xr-x 1 root root 302104 2011-09-17 05:43 /usr/bin/gcc-4.6  
+   8.   
+   9. $ cd /usr/bin  
+  10. $ sudo mv gcc gcc.bak  
+  11. $ sudo ln -s gcc-4.4 gcc  
+3）设置g++版本，使g++链接到g++-4.4
+	$ sudo mv g++ g++.bak  
+	$ sudo ln -s g++-4.4 g++ 
+4）设置完毕后，重新进行编译即可
+
+

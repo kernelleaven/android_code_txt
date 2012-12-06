@@ -1,0 +1,45 @@
+三 编译androidgoldfish内核
+
+1）进入android4.0.1源码目录，下载goldfish内核源码
+   1. $ mkdir kernel  
+   2. $ cd kernel  
+   3. $ git clone http://android.googlesource.com/kernel/goldfish.git  
+   4. $ cd goldfish  
+   5. $ git branch -a  
+   6. * (no branch)  
+   7.   
+   8.   master  
+   9.   
+  10.   remotes/origin/HEAD -> origin/master  
+  11.   
+  12.   remotes/origin/android-goldfish-2.6.29  
+  13.   
+  14.   remotes/origin/master  
+  15.   
+  16. $ git checkout remotes/origin/android-goldfish-2.6.29  
+
+2)修改Makefile
+   1. goldfish$ gedit Makefile  
+修改
+   1. ARCH                     ?=$(SUBARCH)  
+   2. CROSS_COMPILE ?=  
+为
+   1. ARCH                     ?=arm  
+   2. CROSS_COMPILE ?=arm-eabi-  
+
+3)导出交叉编译器目录为环境变量
+   $ export PATH=$PATH:~/android/prebuilt/linux-x86/toolchain/arm-eabi-4.4.3/bin
+
+4）编译内核
+   1. goldfish$ make goldfish_armv7_defconfig  
+   2.   
+   3. goldfish$ make  
+
+编译完成后，可看到类似如下的输出：
+   1. OBJCOPY arch/arm/boot/zImage  
+   2. Kernel: arch/arm/boot/zImage is ready  
+
+5)从模拟器中启动内核镜像
+   1. $emulator  -kernel ~/android/kernel/goldfish/arch/arm/boot/zImage &  
+
+启动模拟器后，可从Settings->System->AboutPhone中查看内核版本信息。
