@@ -1,0 +1,23 @@
+﻿1.程序的用户组限制，可以做如下修改：
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.android.dlna_server"
+    android:versionCode="1"
+    android:versionName="1.0" 
+    android:sharedUserId="android.uid.system">
+	
+2.权限限制：
+	<uses-permission android:name="android.permission.WRITE_SETTINGS" />
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+	
+3.需要system级别，简单方法，将程序放置到源码目录进行编译。
+
+4.加入包：
+android-sdk-windows\platforms\android-xx\data\layoutlib.jar
+
+5.属性名称字符长度不能超过31,且有命名规则。
+
+6.
+SystemProperties.get(key);
+SystemProperties.set(key, value);
+
+7.读取只需导入包即可，没有其他限制。
