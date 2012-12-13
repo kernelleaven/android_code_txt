@@ -1,0 +1,5 @@
+﻿查看源码可知：
+gallery.setCallbackDuringFling(false);
+即可。
+
+开线程监控滑动，没必要。
