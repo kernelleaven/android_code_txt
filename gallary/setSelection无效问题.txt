@@ -1,0 +1,78 @@
+﻿最近在开发android应用时使用到了Spinner控件,而且是两个spinner联动的设计，
+但在设计spinner控件的默认选择条目时却发现设置的默认选择没有显示，通过查询资料，
+并没有发现太多有价值的信息。下面来看具体的问题。
+
+我的显示数据是一个树形结构，由两个spinner控件组成，这要比设计一个spinner要复杂一些。
+
+通过点击第一个spinner中的条目,来确定第二个spinner中要显示的条目信息，而且还要实现
+一个记录选择信息的功能。当我选择好两个spinner中的条目时，程序要记录选择的信息，当
+再次打开时，程序要显示上次选择的两级spinner信息。所以就需要对spinner中选择条目的position进行记录。
+
+开始对于两个spinner设计默认选择时,我使用的都是setselection(int position)函数,但这
+样的结果是只有第一级spinner能够实现默认选择的功能，第二级spinner死活都不行，通过查
+看android api，我发现还有一个setselection(int position,bollean animote)函数。通过
+反复的实验，我发现只要对第一级spinner设计默认选择时使用setselection(int position,boolean animote)
+函数，对于第二级无论使用哪一个函数，都可以实现默认选择的功能。
+
+但我还是很不理解为何setselection(int position)函数不能完成该功能，所以我翻开了android的源代码。上源代码:
+
+/**
+     * Jump directly to a specific item in the adapter data.
+     */
+    public void setSelection(int position, boolean animate) {
+        // Animate only if requested position is already on screen somewhere
+        boolean shouldAnimate = animate && mFirstPosition <= position &&
+                position <= mFirstPosition + getChildCount() - 1;
+        setSelectionInt(position, shouldAnimate);
+    }
+
+@Override
+public void setSelection(int position) {
+ setNextSelectedPositionInt(position);
+requestLayout();
+ invalidate();
+}
+
+很显然在AbsSpinner类中该函数被重写了,setselection(int position,bollean animote)
+函数中调用了
+
+setSelectionInt(position, shouldAnimate)函数
+
+ /**
+* Makes the item at the supplied position selected.
+ *
+ * @param position Position to select
+ * @param animate Should the transition be animated
+*
+ */
+ void setSelectionInt(int position, boolean animate) {
+if (position != mOldSelectedPosition) {
+mBlockLayoutRequests = true;
+ int delta  = position - mSelectedPosition;
+setNextSelectedPositionInt(position);
+ layout(delta, animate);
+ mBlockLayoutRequests = false;
+ }
+ }
+
+在该函数中又调用了setNextSelectedPositionInt(position)函数(这个函数一直没找到源码,
+暂且不列出来了),该函数是完成设置显示默认选项的。这在setselection(int position)这个
+函数中也同样被调用了。
+
+这两个函数不同之处就在于setSelectionInt(int position, boolean animate)函数中的第二
+个参数。笔者结合该参数和源代码中的注释，理解是该函数不仅完成了显示默认选择的设置,
+而且还使该显示的条目变得“活生生的”。
+
+Should the transition be animated 这句英文的意思大概就是使该变换变的有效。
+
+只有使第一个spinner默认选择的条目变得有效，第二级spinner显示的列表信息才能确定，这
+样第二级spinner设置的默认选择才能生效。
+
+说了这么多，不知道大家明白了没有，其实笔者认为仅对于单个的spinner，如果设置默认选择
+的话，使用后一个函数就可以。如果要对两个spinner或者更多的spinner进行多级联动的话，
+那就要用到第一个函数了。
+
+所以，google考虑到可能会出现使用多级spinner联动设计的情况，就为我们增加了一个
+
+setSelectionInt(int position, boole animate)函数。google android开发人员细心周密的
+考虑日月可鉴啊!
