@@ -1,0 +1,76 @@
+﻿参考：https://forums.oracle.com/forums/thread.jspa?threadID=1147986
+//这个可以释放
+udpSocket = new DatagramSocket(null);
+udpSocket.setReuseAddress(true);
+udpSocket.bind(new InetSocketAddress(decoderPort));
+                     
+//下面不能释放					 
+udpSocket = new DatagramSocket(decoderPort);
+
+/////////////////////////
+		    	DatagramPacket dataPacket=null;
+		    	byte[] framedata=new byte[1024];
+			   	try {
+					if(DEBUG)Log.v(TAG,getId()+"decoder thread DatagramSocket [port :"+decoderPort+"] start");
+					//作为数据接受端我们只需要监控相应的端口就行了
+					//host默认为本机host，手机自己里面为127.0.0.1
+					udpSocket = new DatagramSocket(null);
+					udpSocket.setReuseAddress(true);
+					udpSocket.bind(new InetSocketAddress(decoderPort));
+                     
+					//udpSocket = new DatagramSocket(decoderPort);//这一行在超时的时候会导致端口无法释放
+					if(DEBUG)Log.v(TAG,getId()+"decoder thread DatagramSocket [port :"+decoderPort+"] end");
+					udpSocket.setSoTimeout(35000); //35s time out
+					//Log.e("test", "start receiver");
+					//这个是使用DatagramActivity的核心啊
+					//该方法为阻塞的，会一直阻塞知道有数据过来
+					while(!isdecoderend){
+						Arrays.fill(framedata,(byte)0);
+						dataPacket = new DatagramPacket(framedata,framedata.length);
+						if(DEBUG)Log.v(TAG,"try receive connect msg :"+getId());
+						udpSocket.receive(dataPacket);
+											
+						int iLen = dataPacket.getLength();
+						String str = new String(framedata,0,iLen);		
+						
+						Log.v(TAG, "receiveString connect"+str+" "+dataPacket.getAddress());
+						String ip = getServerIp(dataPacket.getAddress().toString());	
+						if(!ip.equals(selfIp)){
+							serverip = ip;
+							disconnectAndClose(udpSocket);
+							udpSocket=null;
+							doWithJson(str);
+							return;
+						}else{
+							Log.v(TAG,"recevie from local ip :"+ip+" will ignore!");
+						}
+					}
+				} catch (SocketException e) {
+					Log.v(TAG,getId()+"decoder thread SocketException   err !"+e.getMessage());
+				}catch (IOException e) {
+					Log.v(TAG,getId()+"decoder thread ioexcption  err !"+e.getMessage());
+				}
+			   	disconnectAndClose(udpSocket);
+				udpSocket=null;
+			}
+		    private void disconnectAndClose(DatagramSocket socket){		    	
+		    	if(null == socket){
+		    		Log.v(TAG,"disconnectAndClose:null == socket");
+		    		return;
+		    	}
+		    	if(socket.isConnected())
+		    		socket.disconnect();
+		    	else
+		    		Log.v(TAG,"disconnectAndClose:socket.isConnected():"+socket.isConnected());
+	    		if(!socket.isClosed())
+	    			socket.close();
+	    		else
+	    			Log.v(TAG,"disconnectAndClose:socket.isClosed():"+socket.isClosed());
+		    }
+	    	@Override
+	    	public void interrupt() {
+	    		Log.v(TAG,"interrupt :"+getId());
+	    		isdecoderend=true;
+	    		disconnectAndClose(udpSocket);
+	    		super.interrupt();
+	    	}
