@@ -1,0 +1,298 @@
+﻿
+Android4.0中判断WIFI P2P选项是否显示的源码分析
+分类： Android 2012-02-20 15:27 1962人阅读 评论(10) 收藏 举报
+
+
+     Android 4.0新增WIFI DIRECT的功能，但是在模拟器上以及一些可以升级至4.0的手
+	 机或平板，在settings里面仍然没有WIFI DIRECT功能选项。于是出于好奇，所以跟踪了一
+
+     下源码。
+
+   1.  查找在系统设置包中是否有WIFI DIRECT这部分代码处理。
+
+        在Android4.0的源码路径（我的是源码路径为:myandroid_4.0）/packages/apps/
+		Settings/src/com/android/settings/wifi中发现有P2P这个文件夹，哪说明设置包
+		里面具有WIFI DIRECT这部分的代码处理。
+
+    2.   查找在系统设置里对WIFI DIRECT是否有过滤。
+
+          跟踪Settings包源码，终于发现苗头：在WirelessSettings.java (myandroid_4.0\
+		  packages\apps\settings\src\com\android\settings) 文件中
+
+[java] view plaincopy
+
+    @Override  
+    public void onCreate(Bundle savedInstanceState) {  
+        super.onCreate(savedInstanceState);  
+        ..........................................  
+        ...........................................  
+        WifiP2pManager p2p = (WifiP2pManager) activity.getSystemService(Context.WIFI_P2P_SERVICE);  
+      
+        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_WIFI_DIRECT)) {  
+            getPreferenceScreen().removePreference(wifiP2p);  
+        } else {  
+            mWifiP2pEnabler = new WifiP2pEnabler(activity, wifiP2p);  
+        }  
+        ...........................................  
+        ...........................................  
+
+    1）分析PackageManager.FEATURE_WIFI_DIRECT：文件PackageManager.java (frameworks\
+	base\core\java\android\content\pm) 中：
+
+          @SdkConstant(SdkConstantType.FEATURE)
+           public static final String FEATURE_WIFI_DIRECT = "android.hardware.wifi.direct";//即为传进去做判断的String。
+
+    2）分析getPackageManager()函数
+
+           文件SettingsPreferenceFragment.java (packages\apps\settings\src\com\android\settings)中，
+
+[java] view plaincopy
+
+    ...................................  
+    ...................................  
+        /** 
+         * Returns the PackageManager from the owning Activity. 
+         */  
+        protected PackageManager getPackageManager() {  
+            return getActivity().getPackageManager();  
+        }  
+    ...................................  
+    ...................................  
+
+
+         分析getAcivity()返回一个Activity。Activity.java (frameworks\base\core\java\android\app) 
+		 中没有 getPackageManager()函数；
+
+         由于public class Activity extends ContextThemeWrapper，所以进入文件ContextThemeWrapper.java 
+		 (frameworks\base\core\java\android\view)中，
+
+         也没有getPackageManager（）函数，同理发现public class ContextThemeWrapper extends ContextWrapper，
+		 所以进入文件ContextWrapper.java (frameworks\base\core\java\android\content) ，
+		 此时终于见到getPackageManager（）踪影：
+
+         public class ContextWrapper extends Context {
+            Context mBase;
+
+            ....................................
+
+            ....................................
+
+             @Override
+             public PackageManager getPackageManager() {
+                 return mBase.getPackageManager();
+              }
+
+            .....................................
+
+           ......................................
+
+           }
+          继续跟踪文件Context.java (frameworks\base\core\java\android\content)，
+		  发现getPackageManager（）是一个抽象函数：
+
+                   /** Return PackageManager instance to find global package information. */
+                   public abstract PackageManager getPackageManager();
+          分析到这里其实我也不知到该怎么继续跟踪这个函数了，想想是否跟这个文件（
+		  因为class ContextImpl extends Context）有关联ContextImpl.java (frameworks\base\core\java\android\app)，
+		  的确找到了关心的代码：
+
+[java] view plaincopy
+
+    @Override  
+    public PackageManager getPackageManager() {  
+        if (mPackageManager != null) {  
+            return mPackageManager;  
+        }  
+      
+        IPackageManager pm = ActivityThread.getPackageManager();  
+        if (pm != null) {  
+            // Doesn't matter if we make more than one instance.  
+            return (mPackageManager = new ApplicationPackageManager(this, pm));  
+        }  
+      
+        return null;  
+    }  
+
+          因为 final class ApplicationPackageManager extends PackageManager，所以从上面代码
+		  分析getPackageManager（）返回一个ApplicationPackageManager.  
+
+       3)  分析getPackageManager().hasSystemFeature（PackageManager.FEATURE_WIFI_DIRECT）
+
+             由上面分析而知，getPackageManager().hasSystemFeature函数应该调到文件
+			 ApplicationPackageManager.java (frameworks\base\core\java\android\app) ，
+
+            
+[java] view plaincopy
+
+    final class ApplicationPackageManager extends PackageManager {  
+    ..............................  
+    ..............................  
+        @Override  
+        public boolean hasSystemFeature(String name) {  
+            try {  
+                return mPM.hasSystemFeature(name);  
+            } catch (RemoteException e) {  
+                throw new RuntimeException("Package manager has died", e);  
+            }  
+        }  
+    ..............................  
+    ...............................  
+    }  
+
+        mPM.hasSystemFeature(name)经过AIDL实际上调用到文件PackageManagerService.java 
+		(frameworks\base\services\java\com\android\server\pm)  
+
+[java] view plaincopy
+
+    public class PackageManagerService extends IPackageManager.Stub {  
+    ....................................  
+    ....................................  
+        public boolean hasSystemFeature(String name) {  
+            synchronized (mPackages) {  
+                return mAvailableFeatures.containsKey(name);  
+            }  
+        }  
+    ...................................  
+    ...................................  
+    }  
+
+   mAvailableFeatures里面的内容是通过读取/system/etc/permissions下面的文档。具体代码如下所示：
+
+[java] view plaincopy
+
+        void readPermissions() {  
+            // Read permissions from .../etc/permission directory.  
+            File libraryDir = new File(Environment.getRootDirectory(), "etc/permissions");  
+            if (!libraryDir.exists() || !libraryDir.isDirectory()) {  
+                Slog.w(TAG, "No directory " + libraryDir + ", skipping");  
+                return;  
+            }  
+            if (!libraryDir.canRead()) {  
+                Slog.w(TAG, "Directory " + libraryDir + " cannot be read");  
+                return;  
+            }  
+      
+            // Iterate over the files in the directory and scan .xml files  
+            for (File f : libraryDir.listFiles()) {  
+                // We'll read platform.xml last  
+                if (f.getPath().endsWith("etc/permissions/platform.xml")) {  
+                    continue;  
+                }  
+      
+                if (!f.getPath().endsWith(".xml")) {  
+                    Slog.i(TAG, "Non-xml file " + f + " in " + libraryDir + " directory, ignoring");  
+                    continue;  
+                }  
+                if (!f.canRead()) {  
+                    Slog.w(TAG, "Permissions library file " + f + " cannot be read");  
+                    continue;  
+                }  
+      
+                readPermissionsFromXml(f);  
+            }  
+      
+            // Read permissions from .../etc/permissions/platform.xml last so it will take precedence  
+            final File permFile = new File(Environment.getRootDirectory(),  
+                    "etc/permissions/platform.xml");  
+            readPermissionsFromXml(permFile);  
+        }  
+      
+        private void readPermissionsFromXml(File permFile) {  
+            FileReader permReader = null;  
+            try {  
+                permReader = new FileReader(permFile);  
+            } catch (FileNotFoundException e) {  
+                Slog.w(TAG, "Couldn't find or open permissions file " + permFile);  
+                return;  
+            }  
+      
+            try {  
+                XmlPullParser parser = Xml.newPullParser();  
+                parser.setInput(permReader);  
+      
+                XmlUtils.beginDocument(parser, "permissions");  
+      
+                while (true) {  
+                    XmlUtils.nextElement(parser);  
+                    if (parser.getEventType() == XmlPullParser.END_DOCUMENT) {  
+                        break;  
+                    }  
+      
+                    String name = parser.getName();  
+                    if ("group".equals(name)) {  
+                        String gidStr = parser.getAttributeValue(null, "gid");  
+                        if (gidStr != null) {  
+                            int gid = Integer.parseInt(gidStr);  
+                            mGlobalGids = appendInt(mGlobalGids, gid);  
+                        } else {  
+                            Slog.w(TAG, "<group> without gid at "  
+                                    + parser.getPositionDescription());  
+                        }  
+      
+                        XmlUtils.skipCurrentTag(parser);  
+                        continue;  
+                    }   
+    ...................  
+    ...................  
+    else if ("feature".equals(name)) {  
+                        String fname = parser.getAttributeValue(null, "name");  
+                        if (fname == null) {  
+                            Slog.w(TAG, "<feature> without name at "  
+                                    + parser.getPositionDescription());  
+                        } else {  
+                            //Log.i(TAG, "Got feature " + fname);  
+                            FeatureInfo fi = new FeatureInfo();  
+                            fi.name = fname;  
+                            mAvailableFeatures.put(fname, fi);  
+                        }  
+                        XmlUtils.skipCurrentTag(parser);  
+                        continue;  
+      
+                    } else {  
+                        XmlUtils.skipCurrentTag(parser);  
+                        continue;  
+                    }  
+      
+                }  
+                permReader.close();  
+            } catch (XmlPullParserException e) {  
+                Slog.w(TAG, "Got execption parsing permissions.", e);  
+            } catch (IOException e) {  
+                Slog.w(TAG, "Got execption parsing permissions.", e);  
+            }  
+        }  
+
+
+3.    验证上面代码分析的正确性。
+
+        1） 启动一个ANDROID 4.0的模拟器，然后通过adb shell进入/system/etc/permissions目录下查看，
+                # cd /system/etc/permissions
+                # ls
+                 com.android.location.provider.xml
+                 platform.xml
+                #
+               的确没有android.hardware.wifi.direct.xml文件。
+
+        2） 因为在源码/frameworks/base/data/etc中有android.hardware.wifi.direct.xml文件，所以我手
+		动拷贝此文件到out/target/product/generic/system/etc/permissions/
+
+               目录下，然后编译源码，然后用命令行指定编译完成的system.img,userdata.img,ramdisk.img
+			   来启动模拟器：
+
+               XXX@XXX:~/Android_code/system_img$ /home/XXX/Android_install/android-sdk-linux_x86/
+			   tools/emulator  -system system.img -data userdata.img -ramdisk ramdisk.img 
+			   -partition-size 256 -avd Android4.0.3-APILevel15
+
+               然后在模拟器设置中看到了WiFi Direct的设置项了，如图所示：
+
+
+
+   只是点击时弹出错误框提示“Couldn't start Wi-Fi Direct”,简单的跟踪了一下是WifiP2pService.java中
+   有WifiNative.startP2pSupplicant()的一个判断，跟到JNI层
+
+WifiP2pService.java (frameworks\base\wifi\java\android\net\wifi\p2p)
+static jboolean android_net_wifi_startP2pSupplicant(JNIEnv* env, jobject)
+{
+    return (jboolean)(::wifi_start_p2p_supplicant() == 0); //这个应该是硬件方面的判断。
+}
+   没有再继续跟踪下去了，至少关于WIFI P2P设置的过滤过程已经清楚了。
